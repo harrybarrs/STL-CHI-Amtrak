@@ -1,0 +1,317 @@
+---
+title: "STL - CHI Amtrak"
+author: "Harry Barrs"
+date: "2025-07-17"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE) # Code to make knitted file clean.
+```
+```{r kable-global, include=FALSE}
+knitr::opts_chunk$set(print = function(x) {
+  if (is.data.frame(x)) knitr::kable(x) else print(x)
+}) # Code to make tibbles easier to read in knitted file. 
+```
+## Introduction
+
+Recently, I was asked to pick a friend up from the St. Louis Amtrak station. Their train from Chicago was scheduled to arrive at 10:30 PM. Little to my surprise and most unfortunately, the train was delayed and ended up arriving at 2:30 AM. Having previously had my own experience with delayed Amtrak trains, this recent occurrence begged the question: how reliable is Amtrak? And more specifically, how reliable are the Amtrak trains running between Chicago and St. Louis? And furthermore: is taking an Amtrak train between Chicago and St. Louis, worth the risk of being late. 
+
+```{r, message=FALSE}
+#install.packages("tidyverse")
+library(tidyverse)
+#tinytex::install_tinytex()
+library(tinytex)
+```
+
+## Data
+
+The data used for this analysis is open data which can be found at the Bureau of Transportation Statistics (railroads.dot.gov) under Amtrak or more specifically at: 
+https://railroads.dot.gov/rail-network-development/passenger-rail/amtrak/intercity-passenger-rail-service-quality-and 
+The Amtrak data is gathered quarterly and organized into several different spreadsheets with an overall report. As I am interested in looking specifically at the Amtrak performance for trains between Chicago and St. Louis, I proceeded with the Station Performance Metrics spreadsheet. Again the data is organized by quarter, so I downloaded all quarterly Station Performance Metrics data sets which spanned from Q4, 2021 to Q1, 2025 (14 total files). Note that the FRA (Federal Railroad Association) strives for a minimum OTP (On Time Performance) of 80% over two successive quarters for all intercity passenger trains. The FRA defines “On Time” to be an arrival of less than 15 minutes after the scheduled arrival. Further details of the FRA’s methodology can be found both in their quarterly Methodology Report and Performance and Service Report.
+
+## Methodology
+
+In order to evaluate the reliability of taking a direct Amtrak Train between St. Louis and Chicago and back I calculated the percentage of late passengers per quarter per specific train. Direct trains between St. Louis and Chicago fall into three Sub Service lines: Lincoln Service, Lincoln / Missouri, and Texas Eagle. I will first examine the performance of trains running from CHI -> STL, followed by the performance of trains running from STL -> CHI. I will do this by plotting the percentage of late customers over time for each train followed by a table with cumulative statistics. 
+
+
+```{r}
+# Read in all available station performance datasets.
+library(readxl)
+FY21_Q4 <- read_excel("~/Desktop/Amtrak Station Performance /FY21_Q4.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY22_Q1 <- read_excel("~/Desktop/Amtrak Station Performance /FY22_Q1.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY22_Q2 <- read_excel("~/Desktop/Amtrak Station Performance /FY22_Q2.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY22_Q3 <- read_excel("~/Desktop/Amtrak Station Performance /FY22_Q3.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY22_Q4 <- read_excel("~/Desktop/Amtrak Station Performance /FY22_Q4.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY23_Q1 <- read_excel("~/Desktop/Amtrak Station Performance /FY23_Q1.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY23_Q2 <- read_excel("~/Desktop/Amtrak Station Performance /FY23_Q2.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY23_Q3 <- read_excel("~/Desktop/Amtrak Station Performance /FY23_Q3.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY23_Q4 <- read_excel("~/Desktop/Amtrak Station Performance /FY23_Q4.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY24_Q1 <- read_excel("~/Desktop/Amtrak Station Performance /FY24_Q1.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY24_Q2 <- read_excel("~/Desktop/Amtrak Station Performance /FY24_Q2.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY24_Q3 <- read_excel("~/Desktop/Amtrak Station Performance /FY24_Q3.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY24_Q4 <- read_excel("~/Desktop/Amtrak Station Performance /FY24_Q4.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+FY25_Q1 <- read_excel("~/Desktop/Amtrak Station Performance /FY25_Q1.xlsx", 
+    col_types = c("numeric", "numeric", "text", 
+        "text", "text", "numeric", "text", 
+        "text", "numeric", "numeric", "numeric"))
+
+```
+
+```{r}
+# Only data cleaning required: Column name does not match correctly in 1st quaterly report from 2022.
+FY22_Q1 <- FY22_Q1 %>% 
+  rename("Avg Min Late (Lt CS)" = "Avg Min Late (Lt C)")
+```
+
+```{r}
+# Create list of uploaded data frames for use in train_function
+Table_Names <- list(FY21_Q4,FY22_Q1,FY22_Q2,FY22_Q3,FY22_Q4,FY23_Q1,FY23_Q2,FY23_Q3,FY23_Q4,FY24_Q1,FY24_Q2,FY24_Q3,FY24_Q4,FY25_Q1)
+```
+```{r}
+# Function to create individual data frames for each relevant train. I parse through each dataset filtering for the input train number and arrival city of STL or CHI. I then create a new column of the percentage of late customers and unite the year and quarter column into one column in order to plot easily.
+train_function <- function(train_number,number) {
+  train <- data_frame()
+  for (x in Table_Names) {
+    new_rows <- filter(x, `Train Number` == number & 
+         (`Arrival Station Code` == 'CHI' | `Arrival Station Code` == 'STL'))
+    train <- rbind(train, new_rows)
+  }
+  train <- mutate(train, `Late Customer Percentage` = 100*(`Late Detraining Customers`/`Total Detraining Customers`))
+  train <- unite(train, "Fiscal Year_Quarter", `Fiscal Year`, `Fiscal Quarter`)
+  assign(train_number, train, envir = .GlobalEnv)
+}
+```
+```{r}
+# Create all individual train datasets using the train_function
+train_function('train_300',300)
+train_function('train_301',301)
+train_function('train_302',302)
+train_function('train_305',305)
+train_function('train_306',306)
+train_function('train_307',307)
+train_function('train_21',21)
+train_function('train_22',22)
+train_function('train_318',318)
+train_function('train_319',319)
+```
+```{r}
+# Separate train 318 and 22 into two datasets as these are the only trains which run both directions.
+train_318_CHI <- filter(train_318, `Arrival Station Code` == 'CHI')
+train_318_STL <- filter(train_318, `Arrival Station Code` == 'STL')
+train_22_CHI <- filter(train_22, `Arrival Station Code` == 'CHI')
+train_22_STL <- filter(train_22, `Arrival Station Code` == 'STL')
+
+```
+
+```{r}
+# Create larger data frames of all trips to CHI and STL.
+CHI_trains <- bind_rows(train_300, train_302, train_306, train_318_CHI, train_22_CHI)
+STL_trains <- bind_rows(train_301, train_305, train_307, train_318_STL, train_319, train_21, train_22_STL)
+```
+
+```{r}
+library(ggplot2)
+#install.packages('ggrepel')
+library(ggrepel)
+```
+
+```{r}
+# Code for getting train number labels to attach to the last data point in graph.
+label_data_CHI <- CHI_trains %>%
+  group_by(`Train Number`) %>%
+  filter(`Fiscal Year_Quarter` == max(`Fiscal Year_Quarter`))
+```
+
+```{r}
+label_data_STL <- STL_trains %>%
+  group_by(`Train Number`) %>%
+  filter(`Fiscal Year_Quarter` == max(`Fiscal Year_Quarter`))
+```
+
+```{r}
+# Code for creating custom legend.
+legend_data <- data.frame(
+  x = Inf, y = Inf,
+  SubService = factor(c("Sub 1", "Sub 2", "Sub 3"))
+)
+```
+
+## Results
+
+### CHI -> STL
+
+```{r}
+# Code to plot trains arriving in STL. Not elegant but individual geom_line and geom_plot allowed for me to choose colors.
+ggplot() + 
+  geom_line(data=train_301, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='darkblue')+
+  geom_point(data=train_301, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='darkblue')+
+  geom_line(data=train_305, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='blue')+
+  geom_point(data=train_305, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='blue')+
+  geom_line(data=train_307, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='blue3')+
+  geom_point(data=train_307, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='blue3')+
+  geom_line(data=train_318_STL, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='darkgreen')+
+  geom_point(data=train_318_STL, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='darkgreen')+
+  geom_line(data=train_319, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='green4')+
+  geom_point(data=train_319, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color= 'green4')+
+  geom_line(data=train_21, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='red3')+
+  geom_point(data=train_21, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='red3')+
+  geom_line(data=train_22_STL, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='red2')+
+  geom_point(data=train_22_STL, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='red2')+
+  geom_text_repel(data = label_data_STL,
+          aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`,label = `Train Number`),
+          hjust = -0.1)+
+  geom_point(data = legend_data, 
+             aes(x = x, y = y, color = SubService),
+             alpha = 0.7, size = 3, show.legend = TRUE) +
+ scale_color_manual(
+    name = "Sub Service",
+    values = c("Sub 1" = "blue", "Sub 2" = "green4", "Sub 3" = "red2"),
+    labels = c("Lincoln Service", "Lincoln / Missouri", "Texas Eagle")
+  ) + 
+  theme_minimal()+
+  theme(
+    legend.position = c(0.85, 0.95),  # Position inside plot (x, y in [0,1])
+    legend.justification = c(1, 1),         # Align top right
+    legend.background = element_rect(fill = "white", color = "gray70", linewidth = 0.5),
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.text = element_text(size = 9)
+  )+
+  labs(title = "Late Customer Percentage of Trains (CHI - STL)",
+       x = "Fiscal Year_Quarter",
+       y = "Late Customer %")
+```
+
+```{r, message=FALSE}
+# Calculate all time average percentage of late passengers and minutes late for trains arriving in STL.
+STL_trains %>%
+  group_by(`Sub Service`,`Train Number`) %>%
+  summarize(avg_late_percentage = mean(`Late Customer Percentage`),avg_min_late = mean(`Avg Min Late (Lt CS)`)) %>%
+  knitr::kable()
+```
+
+```{r}
+# Calculate all time average late passenger percentage and average minutes late for each Sub Service.
+STL_trains %>%
+  group_by(`Sub Service`) %>%
+  summarize(avg_late_percentage = mean(`Late Customer Percentage`),avg_min_late = mean(`Avg Min Late (Lt CS)`)) %>%
+  knitr::kable()
+```
+The train performances vary pretty heavily over time with no noticeable trend. There is no clear winner for an individual train running from CHI to STL. However Lincoln Service trains have performed much better in recent history.
+
+### STL -> CHI
+
+```{r}
+ggplot() + 
+  geom_line(data=train_300, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='blue')+
+  geom_point(data=train_300, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='blue')+
+  geom_line(data=train_302, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='darkblue')+
+  geom_point(data=train_302, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='darkblue')+
+  geom_line(data=train_306, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='blue3')+
+  geom_point(data=train_306, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='blue3')+
+  geom_line(data=train_318_CHI, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='green4')+
+  geom_point(data=train_318_CHI, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='green4')+
+  geom_line(data=train_22_CHI, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`, group = 1), color='red3')+
+  geom_point(data=train_22_CHI, aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`), color='red3')+
+  geom_text_repel(data = label_data_CHI,
+          aes(x=`Fiscal Year_Quarter`, y=`Late Customer Percentage`,label = `Train Number`),
+          hjust = -0.1)+
+  geom_point(data = legend_data, 
+             aes(x = x, y = y, color = SubService),
+             alpha = 0.7, size = 3, show.legend = TRUE) +
+  scale_color_manual(
+    name = "Sub Service",
+    values = c("Sub 1" = "blue", "Sub 2" = "green4", "Sub 3" = "red2"),
+    labels = c("Lincoln Service", "Lincoln / Missouri", "Texas Eagle")
+  ) + 
+  theme_minimal()+
+  theme(
+    legend.position = c(0.79, 0.95),  # Position inside plot (x, y in [0,1])
+    legend.justification = c(1, 1),         # Align top right
+    legend.background = element_rect(fill = "white", color = "gray70", linewidth = 0.5),
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.text = element_text(size = 9)
+  )+
+  labs(title = "Late Customer Percentage of Trains (STL - CHI)",
+       x = "Fiscal Year_Quarter",
+       y = "Late Customer %")
+  
+
+```
+
+```{r}
+library(dplyr)
+```
+
+
+```{r, message=FALSE}
+CHI_trains %>%
+  group_by(`Sub Service`,`Train Number`) %>%
+  summarize(avg_late_percentage = mean(`Late Customer Percentage`),avg_min_late = mean(`Avg Min Late (Lt CS)`)) %>%
+  knitr::kable()
+```
+
+```{r}
+CHI_trains %>%
+  group_by(`Sub Service`) %>%
+  summarize(avg_late_percentage = mean(`Late Customer Percentage`),avg_min_late = mean(`Avg Min Late (Lt CS)`)) %>%
+  knitr::kable()
+```
+
+Again, there is no clear individual winner, but the Lincoln Service trains have a seemingly lower Late Customer %.
+Lincoln Service's better performance is confirmed again with Lincoln / Missouri and Texas Eagle performing even worse running in the CHI direction.\newpage
+
+## Conclusion
+
+- As none of the trains operating between Chicago and St. Louis had an average percentage of delayed customers under 20%; by FRA’s standard these train lines are not running up to par and are not reliable.
+- In both directions Lincoln Service is historically by far the most reliable train line Sub Service.
+- Although ~24% chance of being on time is not stellar it may be acceptable for some. 
+- Personally I find ~40% chance of being late to be not worth the risk and thus would not consider taking a train on the Lincoln / Missouri or Texas Eagle Sub Service. 
+
+## Data Source
+
+railroads.dot.gov 
+
+
+
